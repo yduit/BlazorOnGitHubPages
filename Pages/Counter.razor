@@ -1,4 +1,7 @@
 ﻿@page "/counter"
+@using System
+@using System.IO
+@using BlazorInputFile;
 
 <h1>Counter</h1>
 
@@ -6,11 +9,61 @@
 
 <button class="btn btn-primary" @onclick="IncrementCount">Click me</button>
 
+<div class="drag-drop-zone">
+    <InputFile OnChange="OpenFile" />
+    @status
+</div>
+
+@if (fileName != null)
+{
+    <h3>@fileName</h3>
+    <pre style="height:300px">@fileTextContents</pre>
+}
+
 @code {
     private int currentCount = 0;
+
+    const string DefaultStatus = "Drop a text file here to view it, or click to choose a file";
+    const int MaxFileSize = 15 * 1024 * 1024; // 5MB
+    string status = DefaultStatus;
+    string fileTextContents = "N/A";
+    string fileName;
 
     private void IncrementCount()
     {
         currentCount++;
+    }
+
+    async Task OpenFile(IFileListEntry[] files)
+    {
+        var file = files.FirstOrDefault();
+        if (file == null)
+        {
+            return;
+        }
+        else if (file.Size > MaxFileSize)
+        {
+            status = $"That's too big. Max size: {MaxFileSize} bytes.";
+        }
+        else
+        {
+            status = "Loading...";
+            fileName = file.Name;
+            try
+            {
+                using (var reader = new StreamReader(file.Data))
+                {
+                    fileTextContents = await reader.ReadToEndAsync();
+
+                };
+
+            }
+            catch (Exception ex)
+            {
+                fileTextContents = ex.StackTrace;
+            }
+            status = $"Finished loading {file.Size} bytes from {file.Name}";
+        }
+
     }
 }
