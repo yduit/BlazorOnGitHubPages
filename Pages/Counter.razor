@@ -3,6 +3,13 @@
 @using System.IO
 @using BlazorInputFile;
 
+@using Rakor.Blazor.ECharts.Component
+@using Rakor.Blazor.ECharts.Option
+@using Rakor.Blazor.ECharts.Option.Enum
+@using Rakor.Blazor.ECharts.Option.Series.Line
+@using Rakor.Blazor.ECharts.Option.Series.Bar
+@using Rakor.Blazor.ECharts.Option.Series
+
 <h1>Counter</h1>
 
 <p>Current count: @currentCount</p>
@@ -14,6 +21,10 @@
     @status
 </div>
 
+<div class="chartcontainer" style="height:40vh;">
+    <ECLine Option="@Option1" Class="chart-fill" @ref="line1"></ECLine>
+</div>
+
 @if (fileName != null)
 {
     <h3>@fileName</h3>
@@ -22,6 +33,9 @@
 
 @code {
     private int currentCount = 0;
+
+    private EChartsOption<Line> Option1;
+    private ECLine line1;
 
     const string DefaultStatus = "Drop a text file here to view it, or click to choose a file";
     const int MaxFileSize = 15 * 1024 * 1024; // 5MB
@@ -64,6 +78,58 @@
             }
             status = $"Finished loading {file.Size} bytes from {file.Name}";
         }
+
+    }
+
+    protected override void OnInitialized()
+    {
+        var dir = Directory.GetCurrentDirectory();
+        base.OnInitialized();
+
+        Option1 = new EChartsOption<Line>()
+        {
+            Title = new Title() { Text = "未来一周气温变化", Subtext = "By distribution" },
+            Tooltip = new Tooltip() { Trigger = TooltipTrigger.Axis },
+            Legend = new Legend() { Data = new[] { "最高气温", "最低气温" } },
+            Toolbox = new Toolbox()
+            {
+                Show = true,
+                Feature = new Feature()
+                {
+                    DataZoom = new FeatureDataZoom() { YAxisIndex = "none" },
+                    Restore = new Restore(),
+                    SaveAsImage = new SaveAsImage(),
+                    DataView = new DataView() { ReadOnly = false },
+                    MagicType = new MagicType() { Type = new List<MagicTypeType>() { MagicTypeType.Line, MagicTypeType.Bar, MagicTypeType.Stack, MagicTypeType.Tiled } }
+                }
+            },
+            XAxis = new List<XAxis>()
+{
+                new XAxis(){Type=AxisType.Category,BoundaryGap=false,Data=new []{"周一","周二","周三","周四","周五","周六","周日" } }
+            },
+            YAxis = new List<YAxis>()
+{
+                new YAxis(){Type=AxisType.Value,AxisLabel=new AxisLabel(){Formatter="{value} °C" } }
+            },
+            Series = new List<object>()
+{
+                new Line()
+                {
+                    Name="最高气温",
+                    Data=new []{ 11, 11, 15, 13, 12, 13, 10},
+                    MarkLine=new MarkLine(){Data=new List<object> (){ new MarkLineData() {Name="平均值",Type=Sampling.Average } } },
+                    MarkPoint=new MarkPoint()
+                    {
+                        Data=new List<MarkPointData>()
+                        {
+                            new MarkPointData(){Name="最大值",Type=MarkPointDataType.Max },
+                            //new MarkPointData(){Name="Spike", Value = 11, XAxis=1, YAxis=11},
+                            new MarkPointData(){Name="最小值",Type=MarkPointDataType.Min }
+                        }
+                    }
+                }
+            }
+        };
 
     }
 }

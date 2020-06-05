@@ -181,3 +181,31 @@ app {
         display: block;
     }
 }
+
+/*Echarts Razor demo */
+.chartcontainer {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    padding-left: 20px;
+    padding-bottom: 20px;
+    padding-right: 0px;
+    padding-top: 0px;
+    height: 95%;
+    width: 95%;
+}
+
+.chart-normal {
+    border-radius: 4px;
+    height: 300px;
+    width: 400px;
+    margin-top: 20px;
+}
+
+.chart-fill {
+    width: 100%;
+    height: 90%;
+    margin-top: 20px;
+    margin-right: 20px;
+}
