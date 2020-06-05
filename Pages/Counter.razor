@@ -1,6 +1,9 @@
 ﻿@page "/counter"
 @using System
 @using System.IO
+@using System.Data
+@using System.Globalization
+@using CsvHelper
 @using BlazorInputFile;
 
 @using Rakor.Blazor.ECharts.Component
@@ -10,18 +13,18 @@
 @using Rakor.Blazor.ECharts.Option.Series.Bar
 @using Rakor.Blazor.ECharts.Option.Series
 
-<h1>Counter</h1>
+@*<h1>Counter</h1>
 
 <p>Current count: @currentCount</p>
 
-<button class="btn btn-primary" @onclick="IncrementCount">Click me</button>
+<button class="btn btn-primary" @onclick="IncrementCount">Click me</button>*@
 
 <div class="drag-drop-zone">
     <InputFile OnChange="OpenFile" />
     @status
 </div>
 
-<div class="chartcontainer" style="height:40vh;">
+<div class="chartcontainer" style="height:75vh;">
     <ECLine Option="@Option1" Class="chart-fill" @ref="line1"></ECLine>
 </div>
 
@@ -42,6 +45,8 @@
     string status = DefaultStatus;
     string fileTextContents = "N/A";
     string fileName;
+
+    DataTable dataTable;
 
     private void IncrementCount()
     {
@@ -71,14 +76,86 @@
 
                 };
 
+                using (var reader = new StringReader(fileTextContents))
+                using (var csv = new CsvReader(reader, CultureInfo.InvariantCulture))
+                {
+
+                    using (var dr = new CsvDataReader(csv))
+                    {
+                        dataTable = new DataTable();
+                        csv.ReadHeader();
+                        foreach (var header in csv.Context.HeaderRecord)
+                        {
+                            dataTable.Columns.Add(header);
+                        }
+                        dataTable.Load(dr);
+                    }
+                };
+
             }
             catch (Exception ex)
             {
                 fileTextContents = ex.StackTrace;
             }
             status = $"Finished loading {file.Size} bytes from {file.Name}";
+
+            await RefreshChart(dataTable);
         }
 
+    }
+
+    async Task RefreshChart(DataTable table)
+    {
+        var legend = new Legend();
+        int numOfColumns = table.Columns.Count;
+        int numOfRows = table.Rows.Count;
+        var series = new List<object>();
+
+        if (numOfColumns == 1) // one column, must be a data column
+        {
+            legend.Data = new[] { table.Columns[0].ColumnName };
+            Option1.XAxis[0].Data = Enumerable.Range(1, numOfRows);
+            // only one series
+            var data = table.Rows.Cast<DataRow>().Select(r => r[0]).ToArray();
+            var line = new Line() { Name = table.Columns[0].ColumnName, Data = data, ShowSymbol = false };
+            series.Add(line);
+        } else
+        {
+            // legned name starts at second column
+            legend.Data = table.Columns.Cast<DataColumn>().Where(c => c.Ordinal >= 1).Select(c => c.ColumnName).ToArray();
+            // multiple columns, first column is X-Axis
+            Option1.XAxis[0].Data = table.Rows.Cast<DataRow>().Select(r => r[0]).ToArray();
+            // create series
+            for (int i = 1; i < table.Columns.Count; i++)
+            {
+                var data = table.Rows.Cast<DataRow>().Select(r => r[i]).ToArray();
+                var line = new Line() { Name = table.Columns[i].ColumnName, Data = data, ShowSymbol = false };
+                series.Add(line);
+            }
+        }
+
+        //for(int i = 1; i < table.Columns.Count; i++)
+        //{
+        //    var data = table.Rows.Cast<DataRow>().Select(r => r[i]).ToArray();
+        //    var line = new Line() { Name = table.Columns[i].ColumnName, Data = data, ShowSymbol = false };
+        //    series.Add(line);
+        //}
+        //if (series.Count == 0)
+        //{
+        //    legend.Data = new[] { table.Columns[0].ColumnName };
+        //    Option1.XAxis[0].Data = Enumerable.Range(1, table.Rows.Count);
+        //    var data = table.Rows.Cast<DataRow>().Select(r => r[0]).ToArray();
+        //    var line = new Line() { Name = table.Columns[0].ColumnName, Data = data, ShowSymbol = false };
+        //    series.Add(line);
+        //}
+        //else
+        //{
+        //    legend.Data = table.Columns.Cast<DataColumn>().Where(c => c.Ordinal > 0).Select(c => c.ColumnName).ToArray();
+        //    Option1.XAxis[0].Data = table.Rows.Cast<DataRow>().Select(r => r[0]).ToArray();
+        //}
+        Option1.Legend = legend;
+        Option1.Series = series;
+        await line1.SetupOptionAsync(Option1);
     }
 
     protected override void OnInitialized()
@@ -94,22 +171,28 @@
             Toolbox = new Toolbox()
             {
                 Show = true,
+                Orient = Orient.Vertical,
                 Feature = new Feature()
                 {
                     DataZoom = new FeatureDataZoom() { YAxisIndex = "none" },
                     Restore = new Restore(),
                     SaveAsImage = new SaveAsImage(),
-                    DataView = new DataView() { ReadOnly = false },
+                    DataView = new Rakor.Blazor.ECharts.Option.DataView() { ReadOnly = false },
                     MagicType = new MagicType() { Type = new List<MagicTypeType>() { MagicTypeType.Line, MagicTypeType.Bar, MagicTypeType.Stack, MagicTypeType.Tiled } }
                 }
             },
             XAxis = new List<XAxis>()
 {
-                new XAxis(){Type=AxisType.Category,BoundaryGap=false,Data=new []{"周一","周二","周三","周四","周五","周六","周日" } }
+                new XAxis(){
+                    Type=AxisType.Category,
+                    BoundaryGap=false,
+                    //AxisLabel = new AxisLabel() {Formatter = "{value} °"},
+                    Data=new []{"周一","周二","周三","周四","周五","周六","周日" }
+                }
             },
             YAxis = new List<YAxis>()
 {
-                new YAxis(){Type=AxisType.Value,AxisLabel=new AxisLabel(){Formatter="{value} °C" } }
+                new YAxis(){Type=AxisType.Value,AxisLabel=new AxisLabel(){Formatter="{value} $" } }
             },
             Series = new List<object>()
 {
@@ -121,7 +204,7 @@
                     MarkPoint=new MarkPoint()
                     {
                         Data=new List<MarkPointData>()
-                        {
+                {
                             new MarkPointData(){Name="最大值",Type=MarkPointDataType.Max },
                             //new MarkPointData(){Name="Spike", Value = 11, XAxis=1, YAxis=11},
                             new MarkPointData(){Name="最小值",Type=MarkPointDataType.Min }
