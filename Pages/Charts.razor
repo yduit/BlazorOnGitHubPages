@@ -1,0 +1,196 @@
+﻿@page "/charts"
+@using System.IO
+@using Rakor.Blazor.ECharts.Component
+@using Rakor.Blazor.ECharts.Option
+@using Rakor.Blazor.ECharts.Option.Enum
+@using Rakor.Blazor.ECharts.Option.Series.Line
+@using Rakor.Blazor.ECharts.Option.Series.Bar
+@using Rakor.Blazor.ECharts.Option.Series
+@*@using BlazorPro.Spinkit*@
+@using MathNet.Numerics;
+@using MathNet.Numerics.Random
+@using MathNet.Numerics.Statistics
+@using MathNet.Numerics.Distributions
+@*@using Microsoft.CodeAnalysis.CSharp.Scripting
+@using Microsoft.CodeAnalysis.Scripting*@
+
+    <select @bind="distfunc">
+        <option value="Random">Random</option>
+        <option value="Normal">Normal</option>
+        <option value="Chisquared">ChiSquared</option>
+        <option value="Exponential">Exponential</option>
+    </select>
+<button class="btn btn-primary" @onclick="IncrementCount">Refresh Data</button>
+@*<button class="btn btn-primary" @onclick="ShowHistogram">Histogram</button>*@
+
+<div class="chartcontainer" style="height:35vh;">
+    <ECLine Option="@Option1" Class="chart-fill" @ref="line1"></ECLine>
+    <ECBar Option="@Option2" Class="chart-fill" @ref="bar1"></ECBar>
+</div>
+
+@code {
+    int currentCount = 0;
+    private EChartsOption<Line> Option1;
+    private EChartsOption<Bar> Option2;
+    private ECLine line1;
+    private ECBar bar1;
+    private bool isLoading = true;
+    private int numberOfPoints = 1000;
+    private int numberOfBins = 100;
+    private int lowerBound = -20;
+    private int upperBound = 250;
+    private IEnumerable<double> data1;
+    private double[] data;
+    private Random rng = new Random();
+    private string distfunc = "Normal";
+
+    async void IncrementCount()
+    {
+        currentCount++;
+        isLoading = !isLoading;
+        //data1 = GetRandomData(numberOfPoints, (lowerBound + upperBound) / 2 + 1, upperBound);
+        //data = data1.ToArray();
+        data = GetDistributionData(numberOfPoints).ToArray();
+        Option1.XAxis[0].Data = Enumerable.Range(1, numberOfPoints);
+        (Option1.Series[0] as Line).Data = data;
+        Option1.Title.Text = distfunc;
+
+        await line1.SetupOptionAsync(Option1);
+
+        ShowHistogram();
+    }
+
+    private IEnumerable<double> GetDistributionData(int number)
+    {
+        switch(distfunc)
+        {
+            case "Random":
+                var rnd = new Random();
+                return Enumerable.Range(1, number).Select(index => rnd.NextDouble());
+            case "Chisquared":
+                var chiSquare = new ChiSquared(5);
+                return Enumerable.Range(1, number).Select(index => chiSquare.Sample());
+            case "Exponential":
+                var expo = new Exponential(0.1);
+                return Enumerable.Range(1, number).Select(index => expo.Sample());
+            case "Normal":
+            default:
+                var norm = new Normal(0d, 1d, SystemRandomSource.Default);
+                return Enumerable.Range(1, number).Select(index => norm.Sample());
+        }
+    }
+
+    private IEnumerable<double> GetRandomData(int number, int lowerBound, int upperBound)
+    {
+        var data = Generate.LinearSpacedMap(1000, 0, 100, x => x * 2);
+        var dataB = Generate.LinearSpacedMap(1000, 0, 100, x => x * x);
+        var strVal = Correlation.Pearson(data, dataB).ToString("N04");
+
+        var norm = new Normal(0d, 1d, SystemRandomSource.Default);
+        var chiSquare = new ChiSquared(5);
+        return Enumerable.Range(1, number).Select(index => chiSquare.Sample());
+    }
+
+    async void ShowHistogram()
+    {
+        var histogram = new Histogram(data, numberOfBins);
+
+        List<double> data2 = new List<double>();
+        for (int i = 0; i < histogram.BucketCount; i++)
+        {
+            data2.Add(histogram[i].Count);
+        }
+        Option2.XAxis[0].Data = Enumerable.Range(1, numberOfBins);
+        (Option2.Series[0] as Bar).Data = data2;
+        Option2.Title.Text = distfunc + " Distribution";
+
+        await bar1.SetupOptionAsync(Option2, true);
+    }
+
+    protected override void OnInitialized()
+    {
+        var dir = Directory.GetCurrentDirectory();
+        base.OnInitialized();
+
+        Option1 = new EChartsOption<Line>()
+        {
+            Title = new Title() { Text = distfunc, Subtext = "Distribution" },
+            Tooltip = new Tooltip() { Trigger = TooltipTrigger.Axis },
+            Legend = new Legend() { Data = new[] { "Sample Data"} },
+            Toolbox = new Toolbox()
+            {
+                Show = true,
+                Feature = new Feature()
+                {
+                    DataZoom = new FeatureDataZoom() { YAxisIndex = "none" },
+                    Restore = new Restore(),
+                    SaveAsImage = new SaveAsImage(),
+                    DataView = new DataView() { ReadOnly = false },
+                    MagicType = new MagicType() { Type = new List<MagicTypeType>() { MagicTypeType.Line, MagicTypeType.Bar, MagicTypeType.Stack, MagicTypeType.Tiled } }
+                }
+            },
+            XAxis = new List<XAxis>()
+{
+                new XAxis(){Type=AxisType.Category,BoundaryGap=false,Data=new []{"周一","周二","周三","周四","周五","周六","周日" } }
+            },
+            YAxis = new List<YAxis>()
+{
+                new YAxis(){Type=AxisType.Value,AxisLabel=new AxisLabel(){Formatter="{value} °C" } }
+            },
+            Series = new List<object>()
+{
+                new Line()
+                {
+                    Name="Sample Data",
+                    Data=new []{ 11, 11, 15, 13, 12, 13, 10},
+                    MarkLine=new MarkLine(){Data=new List<object> (){ new MarkLineData() {Name="平均值",Type=Sampling.Average } } },
+                    MarkPoint=new MarkPoint()
+                    {
+                        Data=new List<MarkPointData>()
+                        {
+                            new MarkPointData(){Name="最大值",Type=MarkPointDataType.Max },
+                            //new MarkPointData(){Name="Spike", Value = 11, XAxis=1, YAxis=11},
+                            new MarkPointData(){Name="最小值",Type=MarkPointDataType.Min }
+                        }
+                    }
+                }
+            }
+        };
+
+        Option2 = new EChartsOption<Bar>()
+        {
+            Title = new Title() { Text = distfunc + " Distribution", Subtext = "Histogram" },
+            Tooltip = new Tooltip() { Trigger = TooltipTrigger.Axis },
+            Legend = new Legend() { Data = new[] { "Bucket", } },
+            Toolbox = new Toolbox()
+            {
+                Show = true,
+                Feature = new Feature()
+                {
+                    DataZoom = new FeatureDataZoom() { YAxisIndex = "none" },
+                    Restore = new Restore(),
+                    SaveAsImage = new SaveAsImage(),
+                    DataView = new DataView() { ReadOnly = false },
+                    MagicType = new MagicType() { Type = new List<MagicTypeType>() { MagicTypeType.Line, MagicTypeType.Bar, MagicTypeType.Stack, MagicTypeType.Tiled } }
+                }
+            },
+            XAxis = new List<XAxis>()
+{
+                new XAxis(){Type=AxisType.Category,BoundaryGap=false,Data=new []{"周一","周二","周三","周四","周五","周六","周日" } }
+            },
+            YAxis = new List<YAxis>()
+{
+                new YAxis(){Type=AxisType.Value,AxisLabel=new AxisLabel(){Formatter="{value} °C" } }
+            },
+            Series = new List<object>()
+{
+                new Bar()
+                {
+                    Name="Bucket",
+                    Data=new []{ 11, 11, 15, 13, 12, 13, 10},
+                }
+            }
+        };
+
+    }
+}
