@@ -2,6 +2,8 @@
 @using OfficeOpenXml
 @using OfficeOpenXml.Style
 @using System.Drawing
+@using Microsoft.Extensions.DependencyInjection
+@using BlazorOnGitHubPages.Shared
 
 @inject HttpClient Http
 @inject IJSRuntime jsRuntime;
@@ -37,7 +39,6 @@ else
             }
         </tbody>
     </table>
-
     <button class="btn btn-primary" @onclick="DownloadFile">Download to Excel</button>
 }
 

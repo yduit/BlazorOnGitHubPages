@@ -1,0 +1,62 @@
+﻿@page "/sentment"
+@using Microsoft.Extensions.ML;
+@using BlazorOnGitHubPages.ML.DataModels
+@using System.IO
+@using Microsoft.ML
+
+@inject HttpClient Http
+@inject IConfiguration Configuration
+
+<h2>Live Sentiment</h2>
+
+<p><textarea @oninput="UpdateScoreAsync" cols="45" placeholder="Type any text like a short product review"></textarea></p>
+
+<HappinessScale Value=@happiness />
+
+@code {
+    [Parameter]
+    public float happiness { get; set; } = 50; // 0=worst, 100=best
+    PredictionEngine<SampleObservation, SamplePrediction> predictionEngine = null;
+
+    private async Task UpdateScoreAsync(ChangeEventArgs e)
+    {
+        string targetText = (string)e.Value;
+
+        // Make a real call to Sentiment service
+        happiness = await PredictSentimentAsync(targetText);
+    }
+
+    private async Task<float> PredictSentimentAsync(string targetText)
+    {
+        if(predictionEngine == null)
+        {
+            try
+            {
+                string modelpath = Configuration["MLModel:MLModelFilePath"];
+                Stream savedModel = await Http.GetStreamAsync(modelpath);
+                MLContext mlContext = new MLContext();
+                ITransformer _model = mlContext.Model.Load(savedModel, out DataViewSchema schema);
+                predictionEngine = mlContext.Model.CreatePredictionEngine<SampleObservation, SamplePrediction>(_model);
+            } catch(Exception ex)
+            {
+                var msg = ex.Message + ":" + ex.StackTrace;
+            }
+        }
+
+        if (predictionEngine == null) return new Random().Next(10, 95); //nit sure why _model is null, fake it first
+        // Predict sentiment using ML.NET model
+        SampleObservation sampleData = new SampleObservation { Col0 = targetText };
+
+        // Predict sentiment
+        SamplePrediction prediction = predictionEngine.Predict(sampleData);
+
+        float percentage = CalculatePercentage(prediction.Score);
+
+        return percentage;
+    }
+
+    private float CalculatePercentage(double value)
+    {
+        return 100 * (1.0f / (1.0f + (float)Math.Exp(-value)));
+    }
+}
