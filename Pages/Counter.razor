@@ -13,8 +13,6 @@
 @using Rakor.Blazor.ECharts.Option.Series.Bar
 @using Rakor.Blazor.ECharts.Option.Series
 
-@inject AppSettings AppSettings
-@inject IConfiguration Configuration
 @*<h1>Counter</h1>
 
 <p>Current count: @currentCount</p>
@@ -29,7 +27,7 @@
 <div class="chartcontainer" style="height:75vh;">
     <ECLine Option="@Option1" Class="chart-fill" @ref="line1"></ECLine>
 </div>
-<span>@conn</span>
+
 @if (fileName != null)
 {
     <h3>@fileName</h3>
@@ -49,7 +47,6 @@
     string fileName;
 
     DataTable dataTable;
-    private string conn;
 
     private void IncrementCount()
     {
@@ -70,6 +67,7 @@
         else
         {
             status = "Loading...";
+            fileName = file.Name;
             try
             {
                 using (var reader = new StreamReader(file.Data))
@@ -77,19 +75,7 @@
                     fileTextContents = await reader.ReadToEndAsync();
 
                 };
-                if (file.Name.ToLower().IndexOf("settings.json") >= 0)
-                {
-                    var appsettings = System.Text.Json.JsonSerializer.Deserialize<AppSettings>(fileTextContents);
-                    AppSettings.ConnectionStrings = appsettings.ConnectionStrings;
-                    AppSettings.AlphaVantageApiKey = appsettings.AlphaVantageApiKey;
-                    AppSettings.DeviceHubUrl = appsettings.DeviceHubUrl;
-                    AppSettings.MLModel = appsettings.MLModel;
 
-                    fileTextContents = string.Empty;
-                    status = $"Finished loading {file.Size} bytes from {file.Name}";
-                    return;
-                }
-                fileName = file.Name;
                 using (var reader = new StringReader(fileTextContents))
                 using (var csv = new CsvReader(reader, CultureInfo.InvariantCulture))
                 {
@@ -174,6 +160,9 @@
 
     protected override void OnInitialized()
     {
+        var dir = Directory.GetCurrentDirectory();
+        base.OnInitialized();
+
         Option1 = new EChartsOption<Line>()
         {
             Title = new Title() { Text = "未来一周气温变化", Subtext = "By distribution" },
