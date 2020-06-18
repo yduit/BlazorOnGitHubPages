@@ -14,6 +14,8 @@
 @*@using Microsoft.CodeAnalysis.CSharp.Scripting
 @using Microsoft.CodeAnalysis.Scripting*@
 
+@using Microsoft.Data.Analysis
+
     <select @bind="distfunc">
         <option value="Random">Random</option>
         <option value="Normal">Normal</option>
@@ -51,8 +53,23 @@
         //data1 = GetRandomData(numberOfPoints, (lowerBound + upperBound) / 2 + 1, upperBound);
         //data = data1.ToArray();
         data = GetDistributionData(numberOfPoints).ToArray();
-        Option1.XAxis[0].Data = Enumerable.Range(1, numberOfPoints);
-        (Option1.Series[0] as Line).Data = data;
+
+        //DataFrameColumn dataCol = new DoubleDataFrameColumn("col1",data);
+        //var cumulativeCol = dataCol.CumulativeSum();
+        //var data2 = cumulativeCol.AsQueryable().Cast<double>().ToArray();
+
+        var histogram = new Histogram(data, numberOfBins);
+        double[] hist = new double[histogram.BucketCount];
+        for(int i = 0; i < histogram.BucketCount; i++)
+        {
+            hist[i] = histogram[i].Count;
+        }
+        DataFrameColumn dataCol = new DoubleDataFrameColumn("col1", hist);
+        var cumulativeCol = dataCol.CumulativeSum();
+        var data2 = cumulativeCol.AsQueryable().Cast<double>().ToArray();
+
+        Option1.XAxis[0].Data = Enumerable.Range(1, histogram.BucketCount);// numberOfPoints);
+        (Option1.Series[0] as Line).Data = data2; //data;data2
         Option1.Title.Text = distfunc;
 
         await line1.SetupOptionAsync(Option1);
