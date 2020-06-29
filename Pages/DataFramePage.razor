@@ -1,0 +1,68 @@
+﻿@page "/dataframe"
+@using Microsoft.Data.Analysis;
+@using XPlot.Plotly;
+@inject IJSRuntime jsRuntime;
+
+<h3>DataFrame</h3>
+<div id='xyz123' style='width: 900px; height: 500px;'></div>
+<div id='abc123' style='width: 900px; height: 500px;'></div>
+@*@((MarkupString)chartHtml)*@
+
+@code {
+    private string csvFilePath;
+    private string chartHtml;
+    private string id;
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        base.OnInitialized();
+        LoadCsv();
+    }
+
+    private void LoadCsv()
+    {
+        //var data = Microsoft.Data.Analysis.DataFrame.LoadCsv(csvFilePath);
+        DataFrameColumn xaxis = new DoubleDataFrameColumn("col1", new double[] { 1, 2, 3, 4, 5 });
+        DataFrameColumn yaxis = new DoubleDataFrameColumn("col2", new double[] { 10000, 20000, 83000, 34000, 15000 });
+        DataFrameColumn yaxis2 = new DoubleDataFrameColumn("col3", new double[] { 20000, 30000, 53000, 34000, 65000 });
+        var chart = Chart.Plot(
+        new[] {
+            new Graph.Scatter()
+            {
+                name = "sales",
+                x = xaxis,
+                y = yaxis,
+                mode = "lines"
+            },
+            new Graph.Scatter()
+            {
+                name = "sales2",
+                x = xaxis,
+                y = yaxis2,
+                mode = "lines+markers" // default
+
+             }
+        },
+        new Layout.Layout()
+        {
+            title = "chart title",
+            xaxis = new Graph.Xaxis() { title = "x axis title" },
+            yaxis = new Graph.Yaxis() { title = "y axis title" },
+            hovermode = "closest",
+            showlegend = true
+        }
+    );
+
+        chartHtml = chart.GetInlineHtml();
+        var js = chart.GetInlineJS();
+        id = chart.Id;
+        //chart.Show();
+        //chartHtml = "";
+
+        jsRuntime.InvokeVoidAsync("plot", "xyz123");
+        js = js.Replace("<script>", "");
+        js = js.Replace("</script>", "");
+        js = js.Replace(id, "abc123");
+        jsRuntime.InvokeVoidAsync("execute", js);
+    }
+}
